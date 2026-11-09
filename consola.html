@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <title>Consola — Muscari Bistro</title>
+
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@500,700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/consola.css" />
+</head>
+
+<body class="consola-body">
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <!-- =========================
+       BARRA SUPERIOR
+  ========================== -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__logo">MUSCARI</span>
+      <span class="topbar__tag">Consola</span>
+    </div>
+
+    <div class="topbar__user">
+      <span class="topbar__name" id="usuario-activo"></span>
+      <button type="button" class="btn btn--ghost-light" id="btn-salir">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <!-- =========================
+         NAVEGACIÓN
+    ========================== -->
+    <nav class="sidebar" aria-label="Secciones de la consola">
+      <ul class="sidebar__list">
+        <li><a class="sidebar__link" href="#resumen" data-vista="resumen">Resumen</a></li>
+        <li>
+          <a class="sidebar__link" href="#mesa" data-vista="mesa">
+            Reservas de mesa <span class="sidebar__badge" data-badge="mesa" hidden></span>
+          </a>
+        </li>
+        <li>
+          <a class="sidebar__link" href="#evento" data-vista="evento">
+            Solicitudes de evento <span class="sidebar__badge" data-badge="evento" hidden></span>
+          </a>
+        </li>
+        <li>
+          <a class="sidebar__link" href="#inscripcion" data-vista="inscripcion">
+            Inscripciones <span class="sidebar__badge" data-badge="inscripcion" hidden></span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- =========================
+         CONTENIDO
+    ========================== -->
+    <main class="content" id="contenido" tabindex="-1">
+      <p class="banner" id="banner-demo" hidden>
+        <strong>Modo demostración.</strong>
+        Estos son datos de ejemplo. Se conectarán a la API cuando esté lista.
+      </p>
+
+      <div id="vista"></div>
+    </main>
+  </div>
+
+  <!-- =========================
+       DETALLE DE UN REGISTRO
+  ========================== -->
+  <dialog class="detalle" id="detalle" aria-labelledby="detalle-titulo">
+    <div class="detalle__head">
+      <div>
+        <span class="eyebrow eyebrow--terracotta" id="detalle-tipo"></span>
+        <h2 class="detalle__title" id="detalle-titulo"></h2>
+        <p class="detalle__meta" id="detalle-meta"></p>
+      </div>
+
+      <button type="button" class="detalle__close" id="detalle-cerrar" aria-label="Cerrar detalle">✕</button>
+    </div>
+
+    <div class="detalle__estado">
+      <span>Estado actual</span>
+      <span id="detalle-estado"></span>
+    </div>
+
+    <dl class="detalle__lista" id="detalle-lista"></dl>
+
+    <div class="detalle__acciones" id="detalle-acciones"></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/datos.js"></script>
+  <script src="js/consola.js"></script>
+</body>
+
+</html>
