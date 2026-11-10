@@ -6,6 +6,7 @@
 
      MuscariDatos.listar()                -> Promise<Array>
      MuscariDatos.actualizarEstado(id, e) -> Promise<void>
+     MuscariDatos.eliminar(id)            -> Promise<void>
 
    Usa la API REST de Firestore con fetch (sin librerías) y el
    token del inicio de sesión. Colección: "solicitudes".
@@ -89,9 +90,16 @@
     }).then(function () {});
   }
 
+  function eliminar(id) {
+    return conToken(BASE + "/solicitudes/" + encodeURIComponent(id), {
+      method: "DELETE",
+    }).then(function () {});
+  }
+
   window.MuscariDatos = {
     simulando: false,
     listar: listar,
     actualizarEstado: actualizarEstado,
+    eliminar: eliminar,
   };
 })();

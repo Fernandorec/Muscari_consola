@@ -1200,3 +1200,16 @@ td.vacio {
     scroll-behavior: auto !important;
   }
 }
+
+/* Eliminar solicitud (confirmación en dos pasos) */
+.detalle__eliminar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  margin-left: auto;
+}
+
+.detalle__eliminar [hidden] {
+  display: none;
+}

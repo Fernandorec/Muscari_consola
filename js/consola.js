@@ -440,9 +440,62 @@
     if (registro.estado !== "pendiente") acciones.push(botonAccion("Volver a pendiente", "btn--outline", "pendiente"));
     if (registro.estado !== "cancelada") acciones.push(botonAccion("Cancelar", "btn--danger", "cancelada"));
 
+    acciones.push(botonEliminar());
+
     document.getElementById("detalle-acciones").replaceChildren.apply(document.getElementById("detalle-acciones"), acciones);
 
     if (!dialogo.open) dialogo.showModal();
+  }
+
+  // Eliminar pide confirmación en dos pasos: el primer clic cambia el botón,
+  // el segundo borra de forma permanente.
+  function botonEliminar() {
+    var boton = h("button", { type: "button", clase: "btn btn--outline", texto: "Eliminar" });
+    var cancelar = h("button", { type: "button", clase: "btn btn--outline", texto: "No, conservar" });
+    var contenedor = h("span", { clase: "detalle__eliminar" }, boton);
+
+    cancelar.hidden = true;
+    contenedor.appendChild(cancelar);
+
+    boton.addEventListener("click", function () {
+      if (cancelar.hidden) {
+        boton.textContent = "Sí, eliminar para siempre";
+        boton.classList.replace("btn--outline", "btn--danger");
+        cancelar.hidden = false;
+        return;
+      }
+
+      eliminarRegistro(boton);
+    });
+
+    cancelar.addEventListener("click", function () {
+      boton.textContent = "Eliminar";
+      boton.classList.replace("btn--danger", "btn--outline");
+      cancelar.hidden = true;
+    });
+
+    return contenedor;
+  }
+
+  function eliminarRegistro(boton) {
+    if (!registroAbierto) return;
+
+    var id = registroAbierto.id;
+    var nombre = registroAbierto.nombre;
+
+    boton.disabled = true;
+
+    window.MuscariDatos.eliminar(id).then(function () {
+      registros = registros.filter(function (r) { return r.id !== id; });
+
+      dialogo.close();
+      mostrarAviso("Solicitud de " + nombre + " eliminada.");
+      actualizarInsignias();
+      render();
+    }).catch(function () {
+      boton.disabled = false;
+      mostrarAviso("No se pudo eliminar. Intenta de nuevo.");
+    });
   }
 
   function cambiarEstado(nuevoEstado, boton) {
