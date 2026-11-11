@@ -609,6 +609,14 @@ textarea {
   line-height: 1.5;
 }
 
+.encabezado__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 12px;
+}
+
 
 /* =========================
    RESUMEN
@@ -1056,6 +1064,288 @@ td.vacio {
 .toast--visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+
+/* =========================
+   CALENDARIO
+========================= */
+
+.cal-layout {
+  display: grid;
+
+  gap: 24px;
+
+  align-items: start;
+}
+
+.cal {
+  border: 1px solid var(--linea);
+
+  background: transparent;
+}
+
+.cal__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px 16px;
+
+  padding: 16px 18px;
+
+  background: var(--arena);
+
+  border-bottom: 1px solid var(--linea);
+}
+
+.cal__mes {
+  margin: 0;
+
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 300;
+
+  font-size: clamp(32px, 4vw, 48px);
+
+  line-height: .85;
+
+  letter-spacing: -.03em;
+
+  text-transform: uppercase;
+}
+
+.cal__nav-acciones {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px;
+}
+
+.cal__nombres,
+.cal__dias {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.cal__nombre {
+  padding: 10px 2px;
+
+  border-bottom: 1px solid var(--linea);
+
+  color: var(--texto-suave);
+
+  font-size: 11px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.cal__dia {
+  appearance: none;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  min-height: 64px;
+  padding: 8px 2px;
+
+  background: transparent;
+  color: var(--texto);
+
+  border: 0;
+  border-right: 1px solid var(--linea);
+  border-bottom: 1px solid var(--linea);
+
+  cursor: pointer;
+
+  transition: background .25s, color .25s;
+}
+
+.cal__dia:nth-child(7n) {
+  border-right: 0;
+}
+
+.cal__dia:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+.cal__numero {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 400;
+
+  font-size: 22px;
+
+  line-height: 1;
+}
+
+.cal__dia--otro {
+  color: var(--texto-suave);
+}
+
+.cal__dia--hoy:not(.cal__dia--activo) {
+  box-shadow: inset 0 -2px 0 var(--terracota);
+}
+
+.cal__dia:hover,
+.cal__dia:focus-visible {
+  background: var(--oscuro);
+  color: var(--crema);
+
+  z-index: 1;
+}
+
+.cal__dia--activo {
+  background: var(--verde);
+  color: var(--crema);
+}
+
+.cal__dia--activo:hover,
+.cal__dia--activo:focus-visible {
+  background: var(--oscuro);
+}
+
+.cal__marcas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  min-height: 8px;
+}
+
+.cal__punto {
+  display: inline-block;
+
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  flex: none;
+}
+
+.cal__punto--mesa {
+  background: var(--verde);
+
+  box-shadow: 0 0 0 2px rgba(77, 94, 58, .28);
+}
+
+.cal__punto--evento {
+  background: var(--terracota);
+
+  box-shadow: 0 0 0 2px rgba(181, 97, 60, .28);
+}
+
+.cal__dia:hover .cal__punto--mesa,
+.cal__dia:focus-visible .cal__punto--mesa,
+.cal__dia--activo .cal__punto--mesa {
+  background: var(--crema);
+
+  box-shadow: 0 0 0 2px rgba(242, 235, 223, .4);
+}
+
+.cal__dia:hover .cal__punto--evento,
+.cal__dia:focus-visible .cal__punto--evento,
+.cal__dia--activo .cal__punto--evento {
+  background: var(--arena);
+
+  box-shadow: 0 0 0 2px rgba(230, 218, 198, .55);
+}
+
+.cal__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px 20px;
+
+  padding: 12px 18px;
+
+  border-top: 1px solid var(--linea);
+
+  color: var(--texto-suave);
+
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.cal__leyenda span {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 8px;
+}
+
+.dia-panel {
+  padding: 24px;
+
+  border: 1px solid var(--linea);
+}
+
+.dia-panel__fecha {
+  margin: 10px 0 8px;
+
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 300;
+
+  font-size: clamp(36px, 4vw, 56px);
+
+  line-height: .88;
+
+  letter-spacing: -.03em;
+
+  text-transform: uppercase;
+}
+
+.dia-panel__resumen {
+  margin: 0 0 8px;
+
+  color: var(--texto-suave);
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dia-panel__bloque + .dia-panel__bloque {
+  margin-top: 28px;
+}
+
+@media (max-width: 899px) {
+  .dia-panel {
+    scroll-margin-top: 120px;
+  }
+}
+
+@media (max-width: 520px) {
+  .cal__nombre {
+    font-size: 10px;
+    letter-spacing: .02em;
+  }
+
+  .cal__dia {
+    min-height: 48px;
+    gap: 4px;
+  }
+
+  .cal__numero {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 900px) {
+  .cal-layout {
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, .75fr);
+  }
+
+  .cal__dia {
+    min-height: 76px;
+  }
 }
 
 

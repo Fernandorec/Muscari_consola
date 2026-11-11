@@ -87,12 +87,25 @@
      Estado
   ------------------------- */
 
+  var MESES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+
+  var DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
   var registros = [];
   var filtros = { busqueda: "", estado: "" };
   var vistaActual = "";
   var registroAbierto = null;
   var cuerpoTabla = null;
   var contador = null;
+  var hoyInicial = new Date();
+  var calendario = {
+    anio: hoyInicial.getFullYear(),
+    mes: hoyInicial.getMonth(),
+    seleccion: claveDesdeDate(hoyInicial),
+  };
 
   var contenedor = document.getElementById("vista");
   var dialogo = document.getElementById("detalle");
@@ -133,12 +146,26 @@
     return valor === undefined || valor === null || String(valor).trim() === "";
   }
 
+  function dosDigitos(numero) {
+    return (numero < 10 ? "0" : "") + numero;
+  }
+
+  function claveDesdeDate(fecha) {
+    return fecha.getFullYear() + "-" + dosDigitos(fecha.getMonth() + 1) + "-" + dosDigitos(fecha.getDate());
+  }
+
   function fechaLocal(texto) {
-    var partes = String(texto || "").split("-");
+    var coincidencia = String(texto || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
 
-    if (partes.length !== 3) return null;
+    if (!coincidencia) return null;
 
-    return new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+    return new Date(Number(coincidencia[1]), Number(coincidencia[2]) - 1, Number(coincidencia[3]));
+  }
+
+  function claveDeRegistro(registro) {
+    var fecha = fechaLocal(registro.fecha);
+
+    return fecha ? claveDesdeDate(fecha) : "";
   }
 
   function formatearFecha(texto) {
@@ -253,8 +280,10 @@
       return new Date(b.recibidoEn) - new Date(a.recibidoEn);
     }).slice(0, 6);
 
+    var irCalendario = h("a", { clase: "btn btn--outline", href: "#calendario", texto: "Calendario" });
+
     contenedor.replaceChildren(
-      encabezado("Resumen", "Lo que ha llegado desde los formularios de la web."),
+      encabezado("Resumen", "Lo que ha llegado desde los formularios de la web.", irCalendario),
 
       h("div", { clase: "tarjetas" },
         tarjetaResumen("mesa"), tarjetaResumen("evento"), tarjetaResumen("inscripcion")
@@ -278,10 +307,224 @@
   }
 
   /* -------------------------
+     Vista: Calendario
+  ------------------------- */
+
+  function delDia(clave, tipo) {
+    return registros.filter(function (registro) {
+      return registro.tipo === tipo && claveDeRegistro(registro) === clave;
+    }).sort(function (a, b) {
+      var horaA = a.hora || "99:99";
+      var horaB = b.hora || "99:99";
+
+      if (horaA !== horaB) return horaA < horaB ? -1 : 1;
+
+      return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es");
+    });
+  }
+
+  function etiquetaDia(fecha, mesas, eventos) {
+    var texto = fecha.toLocaleDateString("es", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    var extras = [];
+
+    if (mesas) extras.push(mesas === 1 ? "1 reserva de mesa" : mesas + " reservas de mesa");
+    if (eventos) extras.push(eventos === 1 ? "1 evento" : eventos + " eventos");
+    if (!extras.length) extras.push("sin reservas ni eventos");
+
+    return texto + ", " + extras.join(", ");
+  }
+
+  function tituloDia(clave) {
+    var fecha = fechaLocal(clave);
+
+    if (!fecha || isNaN(fecha.getTime())) return clave;
+
+    var opciones = { weekday: "long", day: "numeric", month: "long" };
+
+    if (fecha.getFullYear() !== new Date().getFullYear()) opciones.year = "numeric";
+
+    return fecha.toLocaleDateString("es", opciones);
+  }
+
+  function resumenDia(mesas, eventos) {
+    var partes = [];
+
+    if (mesas) partes.push(mesas === 1 ? "1 reserva de mesa" : mesas + " reservas de mesa");
+    if (eventos) partes.push(eventos === 1 ? "1 evento" : eventos + " eventos");
+
+    return partes.length ? partes.join(" · ") : "No hay reservas ni eventos este día.";
+  }
+
+  function textoDia(registro) {
+    if (registro.tipo === "mesa") {
+      return [registro.hora, vacio(registro.personas) ? "" : registro.personas + " pers."].filter(Boolean).join(" · ");
+    }
+
+    return [registro.tipoEvento, vacio(registro.invitados) ? "" : registro.invitados + " invitados"].filter(Boolean).join(" · ");
+  }
+
+  function filaDia(registro) {
+    var boton = h("button", { type: "button", clase: "lista-corta__item" },
+      h("span", { clase: "lista-corta__quien" },
+        h("strong", { texto: registro.nombre }),
+        h("span", { texto: textoDia(registro) || VISTAS[registro.tipo].etiqueta })
+      ),
+      insignia(registro.estado)
+    );
+
+    boton.addEventListener("click", function () { abrirDetalle(registro); });
+
+    return h("li", {}, boton);
+  }
+
+  function bloqueDia(titulo, vacioTexto, items) {
+    return h("section", { clase: "dia-panel__bloque" },
+      h("h3", { clase: "panel__titulo", texto: titulo }),
+      items.length
+        ? h("ul", { clase: "lista-corta" }, items.map(filaDia))
+        : h("p", { clase: "vacio", texto: vacioTexto })
+    );
+  }
+
+  function botonDia(fecha) {
+    var clave = claveDesdeDate(fecha);
+    var mesas = delDia(clave, "mesa");
+    var eventos = delDia(clave, "evento");
+    var clases = ["cal__dia"];
+
+    if (fecha.getMonth() !== calendario.mes) clases.push("cal__dia--otro");
+    if (clave === claveDesdeDate(new Date())) clases.push("cal__dia--hoy");
+    if (clave === calendario.seleccion) clases.push("cal__dia--activo");
+
+    var boton = h("button", {
+      type: "button",
+      clase: clases.join(" "),
+      "aria-pressed": clave === calendario.seleccion ? "true" : "false",
+      "aria-label": etiquetaDia(fecha, mesas.length, eventos.length),
+    },
+      h("span", { clase: "cal__numero", texto: String(fecha.getDate()) }),
+      h("span", { clase: "cal__marcas", "aria-hidden": "true" },
+        mesas.length ? h("span", { clase: "cal__punto cal__punto--mesa" }) : null,
+        eventos.length ? h("span", { clase: "cal__punto cal__punto--evento" }) : null
+      )
+    );
+
+    if (clave === claveDesdeDate(new Date())) boton.setAttribute("aria-current", "date");
+
+    boton.addEventListener("click", function (evento) {
+      calendario.anio = fecha.getFullYear();
+      calendario.mes = fecha.getMonth();
+      calendario.seleccion = clave;
+      renderCalendario({ teclado: evento.detail === 0, desplazar: evento.detail !== 0 });
+    });
+
+    return boton;
+  }
+
+  function diasDelMes() {
+    var primero = new Date(calendario.anio, calendario.mes, 1);
+    var diaSemana = primero.getDay();
+    var desplazamiento = diaSemana === 0 ? 6 : diaSemana - 1;
+    var cursor = new Date(calendario.anio, calendario.mes, 1 - desplazamiento);
+    var dias = [];
+
+    for (var i = 0; i < 42; i++) {
+      dias.push(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return dias;
+  }
+
+  function renderCalendario(opciones) {
+    var opts = opciones || {};
+    var mesas = delDia(calendario.seleccion, "mesa");
+    var eventos = delDia(calendario.seleccion, "evento");
+    var esHoy = calendario.seleccion === claveDesdeDate(new Date());
+
+    var anterior = h("button", { type: "button", clase: "btn btn--small", texto: "Anterior" });
+    var siguiente = h("button", { type: "button", clase: "btn btn--small", texto: "Siguiente" });
+    var hoy = h("button", { type: "button", clase: "btn btn--small", texto: "Hoy" });
+
+    anterior.setAttribute("aria-label", "Mes anterior");
+    siguiente.setAttribute("aria-label", "Mes siguiente");
+
+    anterior.addEventListener("click", function () {
+      var fecha = new Date(calendario.anio, calendario.mes - 1, 1);
+      calendario.anio = fecha.getFullYear();
+      calendario.mes = fecha.getMonth();
+      renderCalendario();
+    });
+
+    siguiente.addEventListener("click", function () {
+      var fecha = new Date(calendario.anio, calendario.mes + 1, 1);
+      calendario.anio = fecha.getFullYear();
+      calendario.mes = fecha.getMonth();
+      renderCalendario();
+    });
+
+    hoy.addEventListener("click", function () {
+      var fecha = new Date();
+      calendario.anio = fecha.getFullYear();
+      calendario.mes = fecha.getMonth();
+      calendario.seleccion = claveDesdeDate(fecha);
+      renderCalendario({ desplazar: true });
+    });
+
+    contenedor.replaceChildren(
+      encabezado("Calendario", "Reservas de mesa y solicitudes de evento, día por día."),
+
+      h("div", { clase: "cal-layout" },
+        h("div", { clase: "cal" },
+          h("div", { clase: "cal__nav" },
+            h("h2", { clase: "cal__mes", id: "cal-mes", texto: MESES[calendario.mes] + " " + calendario.anio }),
+            h("div", { clase: "cal__nav-acciones" }, anterior, hoy, siguiente)
+          ),
+          h("div", { clase: "cal__nombres" }, DIAS_CORTOS.map(function (dia) {
+            return h("span", { clase: "cal__nombre", texto: dia });
+          })),
+          h("div", { clase: "cal__dias", role: "group", "aria-labelledby": "cal-mes" }, diasDelMes().map(botonDia)),
+          h("div", { clase: "cal__leyenda" },
+            h("span", {}, h("span", { clase: "cal__punto cal__punto--mesa", "aria-hidden": "true" }), "Reserva de mesa"),
+            h("span", {}, h("span", { clase: "cal__punto cal__punto--evento", "aria-hidden": "true" }), "Evento")
+          )
+        ),
+
+        h("section", { clase: "dia-panel", id: "dia-seleccionado", "aria-labelledby": "dia-titulo" },
+          h("span", { clase: "eyebrow eyebrow--terracotta", texto: esHoy ? "Hoy" : "Día seleccionado" }),
+          h("h2", { clase: "dia-panel__fecha", id: "dia-titulo", texto: tituloDia(calendario.seleccion) }),
+          h("p", { clase: "dia-panel__resumen", texto: resumenDia(mesas.length, eventos.length) }),
+          bloqueDia("Reservas de mesa", "No hay reservas de mesa.", mesas),
+          bloqueDia("Eventos", "No hay eventos.", eventos)
+        )
+      )
+    );
+
+    if (opts.teclado) {
+      var activo = contenedor.querySelector(".cal__dia--activo");
+
+      if (activo) activo.focus();
+    } else if (opts.desplazar && window.matchMedia("(max-width: 899px)").matches) {
+      var panel = document.getElementById("dia-seleccionado");
+
+      if (panel) {
+        var reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        panel.scrollIntoView({ behavior: reducir ? "auto" : "smooth", block: "start" });
+      }
+    }
+  }
+
+  /* -------------------------
      Vista: lista (mesa / evento / inscripción)
   ------------------------- */
 
-  function encabezado(titulo, descripcion) {
+  function encabezado(titulo, descripcion, extra) {
     var botonActualizar = h("button", { type: "button", clase: "btn btn--outline", texto: "Actualizar" });
 
     botonActualizar.addEventListener("click", function () {
@@ -293,7 +536,7 @@
         h("h1", { clase: "encabezado__titulo", texto: titulo }),
         h("p", { clase: "encabezado__texto", texto: descripcion })
       ),
-      botonActualizar
+      h("div", { clase: "encabezado__acciones" }, extra || null, botonActualizar)
     );
   }
 
@@ -528,7 +771,7 @@
   function vistaDesdeHash() {
     var nombre = window.location.hash.replace("#", "");
 
-    return nombre === "resumen" || VISTAS[nombre] ? nombre : "resumen";
+    return nombre === "resumen" || nombre === "calendario" || VISTAS[nombre] ? nombre : "resumen";
   }
 
   function marcarNavegacion(vista) {
@@ -547,9 +790,10 @@
     }
 
     marcarNavegacion(vista);
-    document.title = (vista === "resumen" ? "Resumen" : VISTAS[vista].titulo) + " — Consola Muscari";
+    document.title = (vista === "resumen" ? "Resumen" : vista === "calendario" ? "Calendario" : VISTAS[vista].titulo) + " — Consola Muscari";
 
     if (vista === "resumen") renderResumen();
+    else if (vista === "calendario") renderCalendario();
     else renderLista(vista);
   }
 
