@@ -16,12 +16,15 @@
      Configuración de vistas
   ------------------------- */
 
+  // Cómo se escribe cada estado en pantalla (en la base de datos se guarda en minúsculas).
   var ESTADOS = {
     pendiente: "Pendiente",
     confirmada: "Confirmada",
     cancelada: "Cancelada",
   };
 
+  // Describe cada lista (mesa, evento, inscripción): su título, las columnas de la tabla
+  // y los campos que se ven en el detalle. Los nombres de campo son los del formulario de la web.
   var VISTAS = {
     mesa: {
       titulo: "Reservas de mesa",
@@ -87,6 +90,7 @@
      Estado
   ------------------------- */
 
+  // Nombres de los meses y de los días, para dibujar el calendario.
   var MESES = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -94,19 +98,26 @@
 
   var DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+  // Todas las solicitudes cargadas desde Firestore. Las pantallas filtran y muestran esta lista.
   var registros = [];
+  // Lo que el usuario escribió en el buscador y el estado elegido en el filtro.
   var filtros = { busqueda: "", estado: "" };
+  // Pantalla que se está mostrando (resumen, calendario, mesa, evento o inscripcion).
   var vistaActual = "";
+  // Solicitud cuyo detalle está abierto en la ventana (null si no hay ninguna).
   var registroAbierto = null;
+  // Piezas de la tabla actual, guardadas para repintar las filas sin rehacer toda la pantalla.
   var cuerpoTabla = null;
   var contador = null;
   var hoyInicial = new Date();
+  // Estado del calendario: mes y año que se ven, y el día seleccionado ("AAAA-MM-DD").
   var calendario = {
     anio: hoyInicial.getFullYear(),
     mes: hoyInicial.getMonth(),
     seleccion: claveDesdeDate(hoyInicial),
   };
 
+  // Elementos fijos de consola.html: donde se dibuja la pantalla, la ventana de detalle y el aviso.
   var contenedor = document.getElementById("vista");
   var dialogo = document.getElementById("detalle");
   var toastEl = document.getElementById("toast");
@@ -115,7 +126,11 @@
      Utilidades
   ------------------------- */
 
-  // Crea elementos de forma segura (sin innerHTML).
+  // Crea un elemento HTML de forma segura (sin innerHTML).
+  // Uso: h("p", { clase: "vacio", texto: "Hola" }, hijo1, hijo2)
+  //   - "texto" se escribe como texto puro, así nadie puede colar HTML.
+  //   - "clase" pone la clase CSS; cualquier otra clave se pone como atributo (href, id, type...).
+  //   - Los hijos pueden ser texto, otros elementos o listas de elementos.
   function h(etiqueta, propiedades) {
     var nodo = document.createElement(etiqueta);
     var props = propiedades || {};
@@ -126,6 +141,7 @@
       else nodo.setAttribute(clave, props[clave]);
     });
 
+    // Agrega un hijo al elemento: ignora los vacíos, abre las listas y convierte el texto en texto.
     function agregar(hijo) {
       if (hijo === null || hijo === undefined || hijo === false) return;
 
@@ -142,18 +158,25 @@
     return nodo;
   }
 
+  // Dice si un valor está "vacío": no existe o solo tiene espacios.
   function vacio(valor) {
     return valor === undefined || valor === null || String(valor).trim() === "";
   }
 
+  // Le pone un cero adelante a los números menores de 10 (5 -> "05"), para armar fechas.
   function dosDigitos(numero) {
     return (numero < 10 ? "0" : "") + numero;
   }
 
+  // Convierte una fecha (Date) en texto "AAAA-MM-DD". Esa "clave" sirve para comparar días
+  // y para encontrar las solicitudes de un día en el calendario.
   function claveDesdeDate(fecha) {
     return fecha.getFullYear() + "-" + dosDigitos(fecha.getMonth() + 1) + "-" + dosDigitos(fecha.getDate());
   }
 
+  // Convierte un texto "AAAA-MM-DD" en una fecha (Date) a las 00:00 hora local.
+  // Si el texto no tiene ese formato devuelve null. Se arma con año, mes y día por separado
+  // para que la zona horaria no la corra un día.
   function fechaLocal(texto) {
     var coincidencia = String(texto || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
 
@@ -162,12 +185,15 @@
     return new Date(Number(coincidencia[1]), Number(coincidencia[2]) - 1, Number(coincidencia[3]));
   }
 
+  // Devuelve el día ("AAAA-MM-DD") de una solicitud según su campo fecha, o "" si no tiene fecha válida.
   function claveDeRegistro(registro) {
     var fecha = fechaLocal(registro.fecha);
 
     return fecha ? claveDesdeDate(fecha) : "";
   }
 
+  // Muestra una fecha "AAAA-MM-DD" de forma legible (ej. "jue, 12 nov 2026").
+  // Si no se puede convertir, devuelve el texto tal cual.
   function formatearFecha(texto) {
     var fecha = fechaLocal(texto);
 
@@ -176,6 +202,8 @@
     return fecha.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
+  // Muestra cuándo llegó una solicitud (ej. "12 nov, 14:30") a partir de la fecha que guarda Firestore.
+  // Devuelve "" si la fecha no es válida.
   function formatearRecibido(iso) {
     var fecha = new Date(iso);
 
@@ -184,6 +212,8 @@
     return fecha.toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 
+  // Devuelve el texto de una celda de la tabla: "—" si está vacío, la fecha formateada si es "fecha",
+  // o el valor tal cual en los demás casos.
   function valorVisible(clave, registro) {
     var valor = registro[clave];
 
@@ -193,10 +223,13 @@
     return String(valor);
   }
 
+  // Crea la etiqueta de color con el estado de una solicitud (Pendiente, Confirmada o Cancelada).
   function insignia(estado) {
     return h("span", { clase: "estado estado--" + estado, texto: ESTADOS[estado] || estado });
   }
 
+  // Muestra un aviso flotante (toast) durante 3,2 segundos.
+  // Si llega otro aviso antes de que termine, reinicia el temporizador.
   function mostrarAviso(texto) {
     toastEl.textContent = texto;
     toastEl.classList.add("toast--visible");
@@ -207,12 +240,15 @@
     }, 3200);
   }
 
+  // Cuenta cuántas solicitudes de un tipo (mesa, evento o inscripcion) siguen pendientes.
   function pendientesDe(tipo) {
     return registros.filter(function (r) {
       return r.tipo === tipo && r.estado === "pendiente";
     }).length;
   }
 
+  // Pone en los globitos del menú lateral la cantidad de pendientes de cada tipo.
+  // Si no hay ninguna, el globito se oculta.
   function actualizarInsignias() {
     Object.keys(VISTAS).forEach(function (tipo) {
       var insigniaNav = document.querySelector('[data-badge="' + tipo + '"]');
@@ -228,6 +264,8 @@
      Vista: Resumen
   ------------------------- */
 
+  // Crea una tarjeta del resumen con los pendientes por revisar y el total de un tipo.
+  // Al hacer clic lleva a la lista de ese tipo.
   function tarjetaResumen(tipo) {
     var vista = VISTAS[tipo];
     var total = registros.filter(function (r) { return r.tipo === tipo; }).length;
@@ -241,6 +279,8 @@
     );
   }
 
+  // Crea una fila clicable (nombre, resumen y estado) para las listas del resumen.
+  // Al hacer clic abre el detalle de la solicitud.
   function filaCorta(registro) {
     var vista = VISTAS[registro.tipo];
 
@@ -257,6 +297,8 @@
     return h("li", {}, boton);
   }
 
+  // Arma la línea de resumen de una solicitud según su tipo:
+  // mesa = fecha, hora y personas; evento = tipo y fecha; inscripción = evento y personas.
   function resumenCorto(registro) {
     if (registro.tipo === "mesa") return formatearFecha(registro.fecha) + " · " + registro.hora + " · " + registro.personas + " pers.";
     if (registro.tipo === "evento") return registro.tipoEvento + " · " + formatearFecha(registro.fecha);
@@ -264,6 +306,8 @@
     return registro.evento + " · " + registro.personas + " pers.";
   }
 
+  // Dibuja la pantalla "Resumen": tarjetas por tipo, las próximas 5 reservas de mesa
+  // (no canceladas, de hoy en adelante) y las últimas 6 solicitudes recibidas.
   function renderResumen() {
     var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -310,6 +354,8 @@
      Vista: Calendario
   ------------------------- */
 
+  // Devuelve las solicitudes de un tipo que caen en un día (clave "AAAA-MM-DD").
+  // Van ordenadas por hora y luego por nombre; las que no tienen hora quedan al final.
   function delDia(clave, tipo) {
     return registros.filter(function (registro) {
       return registro.tipo === tipo && claveDeRegistro(registro) === clave;
@@ -323,6 +369,8 @@
     });
   }
 
+  // Arma la descripción de un día para lectores de pantalla,
+  // ej. "jueves, 12 de noviembre de 2026, 2 reservas de mesa, 1 evento".
   function etiquetaDia(fecha, mesas, eventos) {
     var texto = fecha.toLocaleDateString("es", {
       weekday: "long",
@@ -339,6 +387,8 @@
     return texto + ", " + extras.join(", ");
   }
 
+  // Título del panel del día seleccionado (ej. "jueves, 12 de noviembre").
+  // Solo agrega el año si no es el año actual.
   function tituloDia(clave) {
     var fecha = fechaLocal(clave);
 
@@ -351,6 +401,8 @@
     return fecha.toLocaleDateString("es", opciones);
   }
 
+  // Frase corta con la cantidad de reservas y eventos de un día,
+  // o "No hay reservas ni eventos este día." si no hay nada.
   function resumenDia(mesas, eventos) {
     var partes = [];
 
@@ -360,6 +412,8 @@
     return partes.length ? partes.join(" · ") : "No hay reservas ni eventos este día.";
   }
 
+  // Texto secundario de una fila del panel del día:
+  // hora y personas si es mesa, o tipo de evento e invitados si es evento.
   function textoDia(registro) {
     if (registro.tipo === "mesa") {
       return [registro.hora, vacio(registro.personas) ? "" : registro.personas + " pers."].filter(Boolean).join(" · ");
@@ -368,6 +422,8 @@
     return [registro.tipoEvento, vacio(registro.invitados) ? "" : registro.invitados + " invitados"].filter(Boolean).join(" · ");
   }
 
+  // Crea una fila clicable del panel del día con el nombre, el detalle corto y el estado.
+  // Al hacer clic abre el detalle.
   function filaDia(registro) {
     var boton = h("button", { type: "button", clase: "lista-corta__item" },
       h("span", { clase: "lista-corta__quien" },
@@ -382,6 +438,8 @@
     return h("li", {}, boton);
   }
 
+  // Crea un bloque del panel del día ("Reservas de mesa" o "Eventos") con su lista,
+  // o con un mensaje si no hay nada ese día.
   function bloqueDia(titulo, vacioTexto, items) {
     return h("section", { clase: "dia-panel__bloque" },
       h("h3", { clase: "panel__titulo", texto: titulo }),
@@ -391,6 +449,8 @@
     );
   }
 
+  // Crea el botón de un día del calendario: el número, los puntos de color (mesa y/o evento)
+  // y las marcas de "hoy", "seleccionado" y "de otro mes". Al hacer clic selecciona ese día.
   function botonDia(fecha) {
     var clave = claveDesdeDate(fecha);
     var mesas = delDia(clave, "mesa");
@@ -426,6 +486,8 @@
     return boton;
   }
 
+  // Devuelve las 42 fechas (6 semanas) que se dibujan en el calendario del mes que se está viendo,
+  // empezando en lunes. Incluye días del mes anterior y del siguiente para completar la cuadrícula.
   function diasDelMes() {
     var primero = new Date(calendario.anio, calendario.mes, 1);
     var diaSemana = primero.getDay();
@@ -441,6 +503,10 @@
     return dias;
   }
 
+  // Dibuja la pantalla "Calendario": la cuadrícula del mes con los botones Anterior / Hoy / Siguiente
+  // y, al lado, el panel con las reservas y eventos del día seleccionado.
+  // Opciones: teclado = devuelve el foco al día elegido; desplazar = en pantallas pequeñas
+  // baja hasta el panel del día.
   function renderCalendario(opciones) {
     var opts = opciones || {};
     var mesas = delDia(calendario.seleccion, "mesa");
@@ -524,6 +590,8 @@
      Vista: lista (mesa / evento / inscripción)
   ------------------------- */
 
+  // Crea el encabezado de cada pantalla: título, descripción, un botón extra (opcional)
+  // y el botón "Actualizar", que vuelve a leer los datos de Firestore.
   function encabezado(titulo, descripcion, extra) {
     var botonActualizar = h("button", { type: "button", clase: "btn btn--outline", texto: "Actualizar" });
 
@@ -540,6 +608,8 @@
     );
   }
 
+  // Dice si una solicitud coincide con lo escrito en el buscador (en nombre, correo o teléfono,
+  // sin importar mayúsculas). Si el buscador está vacío, todas coinciden.
   function coincideBusqueda(registro) {
     var texto = filtros.busqueda.trim().toLowerCase();
 
@@ -550,6 +620,9 @@
     });
   }
 
+  // Rellena la tabla de la lista actual: aplica el filtro de estado y la búsqueda, ordena de la más
+  // reciente a la más antigua y actualiza el contador de resultados.
+  // Solo repinta las filas, no toda la pantalla (por eso no se pierde el foco al escribir).
   function pintarTabla() {
     var vista = VISTAS[vistaActual];
 
@@ -587,6 +660,8 @@
     }));
   }
 
+  // Dibuja una pantalla de lista (mesa, evento o inscripción): buscador, filtro de estado,
+  // contador y tabla. Las columnas salen de VISTAS.
   function renderLista(tipo) {
     var vista = VISTAS[tipo];
 
@@ -635,6 +710,7 @@
      Detalle
   ------------------------- */
 
+  // Crea un botón del detalle que, al hacer clic, cambia la solicitud al estado indicado.
   function botonAccion(texto, clase, nuevoEstado) {
     var boton = h("button", { type: "button", clase: "btn " + clase, texto: texto });
 
@@ -643,6 +719,8 @@
     return boton;
   }
 
+  // Convierte el teléfono en un enlace para llamar (tel:) y el correo en un enlace para escribir (mailto:).
+  // Para cualquier otro campo devuelve null.
   function enlaceContacto(clave, valor) {
     if (clave === "telefono") {
       var digitos = String(valor).replace(/[^\d+]/g, "");
@@ -655,6 +733,8 @@
     return null;
   }
 
+  // Abre la ventana con el detalle de una solicitud: escribe sus datos, decide qué botones de acción
+  // mostrar según su estado actual y abre el diálogo.
   function abrirDetalle(registro) {
     var vista = VISTAS[registro.tipo];
 
@@ -690,7 +770,8 @@
     if (!dialogo.open) dialogo.showModal();
   }
 
-  // Eliminar pide confirmación en dos pasos: el primer clic cambia el botón,
+  // Crea el botón "Eliminar". Pide confirmación en dos pasos para evitar borrados por accidente:
+  // el primer clic cambia el botón a "Sí, eliminar para siempre" (y aparece "No, conservar"),
   // el segundo borra de forma permanente.
   function botonEliminar() {
     var boton = h("button", { type: "button", clase: "btn btn--outline", texto: "Eliminar" });
@@ -720,7 +801,9 @@
     return contenedor;
   }
 
-  function eliminarRegistro(boton) {
+  // Borra de Firestore la solicitud abierta. Si sale bien, la quita de la lista, cierra el detalle y avisa.
+  // Si falla, vuelve a activar el botón y muestra un aviso de error.
+  async function eliminarRegistro(boton) {
     if (!registroAbierto) return;
 
     var id = registroAbierto.id;
@@ -728,20 +811,24 @@
 
     boton.disabled = true;
 
-    window.MuscariDatos.eliminar(id).then(function () {
+    try {
+      await window.MuscariDatos.eliminar(id);
+
       registros = registros.filter(function (r) { return r.id !== id; });
 
       dialogo.close();
       mostrarAviso("Solicitud de " + nombre + " eliminada.");
       actualizarInsignias();
       render();
-    }).catch(function () {
+    } catch (error) {
       boton.disabled = false;
       mostrarAviso("No se pudo eliminar. Intenta de nuevo.");
-    });
+    }
   }
 
-  function cambiarEstado(nuevoEstado, boton) {
+  // Cambia en Firestore el estado de la solicitud abierta. Si sale bien, lo actualiza en la lista,
+  // cierra el detalle y avisa. Si falla, vuelve a activar el botón y muestra un aviso de error.
+  async function cambiarEstado(nuevoEstado, boton) {
     if (!registroAbierto) return;
 
     var id = registroAbierto.id;
@@ -749,7 +836,9 @@
 
     boton.disabled = true;
 
-    window.MuscariDatos.actualizarEstado(id, nuevoEstado).then(function () {
+    try {
+      await window.MuscariDatos.actualizarEstado(id, nuevoEstado);
+
       registros.forEach(function (r) {
         if (r.id === id) r.estado = nuevoEstado;
       });
@@ -758,22 +847,26 @@
       mostrarAviso(nombre + ": " + ESTADOS[nuevoEstado].toLowerCase() + ".");
       actualizarInsignias();
       render();
-    }).catch(function () {
+    } catch (error) {
       boton.disabled = false;
       mostrarAviso("No se pudo guardar el cambio. Intenta de nuevo.");
-    });
+    }
   }
 
   /* -------------------------
      Navegación y carga
   ------------------------- */
 
+  // Lee la parte # de la dirección (ej. #mesa) para saber qué pantalla mostrar.
+  // Si no es una pantalla válida, usa "resumen".
   function vistaDesdeHash() {
     var nombre = window.location.hash.replace("#", "");
 
     return nombre === "resumen" || nombre === "calendario" || VISTAS[nombre] ? nombre : "resumen";
   }
 
+  // Marca en el menú lateral el enlace de la pantalla actual (aria-current)
+  // y se lo quita a los demás.
   function marcarNavegacion(vista) {
     document.querySelectorAll(".sidebar__link").forEach(function (enlace) {
       if (enlace.getAttribute("data-vista") === vista) enlace.setAttribute("aria-current", "page");
@@ -781,6 +874,8 @@
     });
   }
 
+  // Dibuja la pantalla que corresponde a la dirección actual (resumen, calendario o una lista).
+  // Si cambió de pantalla, reinicia los filtros. Usa los datos que ya están en memoria.
   function render() {
     var vista = vistaDesdeHash();
 
@@ -797,10 +892,12 @@
     else renderLista(vista);
   }
 
+  // Muestra "Cargando solicitudes…" en lugar del contenido.
   function mostrarCargando() {
     contenedor.replaceChildren(h("p", { clase: "cargando", role: "status", texto: "Cargando solicitudes…" }));
   }
 
+  // Muestra el mensaje de que no se pudieron cargar las solicitudes, con un botón "Reintentar".
   function mostrarError() {
     var reintentar = h("button", { type: "button", clase: "btn btn--dark", texto: "Reintentar" });
 
@@ -814,16 +911,18 @@
     );
   }
 
-  function cargar(conIndicador) {
+  // Pide las solicitudes a Firestore, las guarda en memoria y redibuja la pantalla.
+  // Si falla, muestra el error. Con conIndicador = true muestra "Cargando…" antes de pedirlas.
+  async function cargar(conIndicador) {
     if (conIndicador) mostrarCargando();
 
-    return window.MuscariDatos.listar().then(function (datos) {
-      registros = datos;
+    try {
+      registros = await window.MuscariDatos.listar();
       actualizarInsignias();
       render();
-    }).catch(function () {
+    } catch (error) {
       mostrarError();
-    });
+    }
   }
 
   /* -------------------------

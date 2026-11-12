@@ -79,6 +79,7 @@
       var claveInput = document.getElementById("clave");
       var toggle = document.getElementById("ver-clave");
 
+      // Botón Mostrar/Ocultar: alterna entre ver la contraseña y esconderla.
       toggle.addEventListener("click", function () {
         var visible = claveInput.type === "text";
         claveInput.type = visible ? "password" : "text";
@@ -86,6 +87,8 @@
         toggle.setAttribute("aria-pressed", visible ? "false" : "true");
       });
 
+      // Al enviar el formulario: revisa que haya correo y contraseña e intenta iniciar sesión.
+      // Si sale bien entra a la consola; si no, muestra el error.
       form.addEventListener("submit", async function (event) {
         // preventDefault va antes de cualquier await, o el formulario se enviaría.
         event.preventDefault();

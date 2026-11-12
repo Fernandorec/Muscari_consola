@@ -25,6 +25,8 @@
   var PROYECTO = "muscari-bistro";
   var BASE = "https://firestore.googleapis.com/v1/projects/" + PROYECTO + "/databases/(default)/documents";
 
+  // Hace una petición a Firestore agregando el token de la sesión (cabecera Authorization).
+  // Si Firestore responde con error, lanza una excepción.
   async function conToken(url, opciones) {
     var token = await window.MuscariAuth.token();
 
@@ -37,7 +39,8 @@
     return respuesta;
   }
 
-  // Convierte un valor de Firestore ({stringValue: "x"}) a un valor normal.
+  // Convierte un valor con el formato de Firestore ({ stringValue: "x" }) en un valor normal ("x").
+  // Entiende texto, enteros, decimales, sí/no y fechas.
   function leerValor(valor) {
     if ("stringValue" in valor) return valor.stringValue;
     if ("integerValue" in valor) return Number(valor.integerValue);
@@ -48,6 +51,8 @@
     return "";
   }
 
+  // Convierte un documento de Firestore en un registro simple: { id, tipo, estado, nombre, ... }.
+  // El id sale del final del nombre del documento.
   function documentoARegistro(documento) {
     var registro = { id: documento.name.split("/").pop() };
 
@@ -58,6 +63,8 @@
     return registro;
   }
 
+  // Trae las solicitudes de Firestore (máximo 500), de la más reciente a la más antigua,
+  // ya convertidas en registros simples.
   async function listar() {
     var consulta = {
       structuredQuery: {
@@ -80,6 +87,8 @@
       .map(function (fila) { return documentoARegistro(fila.document); });
   }
 
+  // Cambia solo el campo "estado" de una solicitud (pendiente, confirmada o cancelada),
+  // sin tocar los demás datos.
   async function actualizarEstado(id, estado) {
     var url = BASE + "/solicitudes/" + encodeURIComponent(id) + "?updateMask.fieldPaths=estado";
 
@@ -90,6 +99,7 @@
     });
   }
 
+  // Borra una solicitud de Firestore. No se puede deshacer.
   async function eliminar(id) {
     await conToken(BASE + "/solicitudes/" + encodeURIComponent(id), {
       method: "DELETE",
