@@ -25,16 +25,16 @@
   var PROYECTO = "muscari-bistro";
   var BASE = "https://firestore.googleapis.com/v1/projects/" + PROYECTO + "/databases/(default)/documents";
 
-  function conToken(url, opciones) {
-    return window.MuscariAuth.token().then(function (token) {
-      opciones.headers = Object.assign({ Authorization: "Bearer " + token }, opciones.headers || {});
+  async function conToken(url, opciones) {
+    var token = await window.MuscariAuth.token();
 
-      return fetch(url, opciones);
-    }).then(function (respuesta) {
-      if (!respuesta.ok) throw new Error("Firestore respondió con estado " + respuesta.status);
+    opciones.headers = Object.assign({ Authorization: "Bearer " + token }, opciones.headers || {});
 
-      return respuesta;
-    });
+    var respuesta = await fetch(url, opciones);
+
+    if (!respuesta.ok) throw new Error("Firestore respondió con estado " + respuesta.status);
+
+    return respuesta;
   }
 
   // Convierte un valor de Firestore ({stringValue: "x"}) a un valor normal.
@@ -58,7 +58,7 @@
     return registro;
   }
 
-  function listar() {
+  async function listar() {
     var consulta = {
       structuredQuery: {
         from: [{ collectionId: "solicitudes" }],
@@ -67,33 +67,33 @@
       },
     };
 
-    return conToken(BASE + ":runQuery", {
+    var respuesta = await conToken(BASE + ":runQuery", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(consulta),
-    }).then(function (respuesta) {
-      return respuesta.json();
-    }).then(function (filas) {
-      return filas
-        .filter(function (fila) { return fila.document; })
-        .map(function (fila) { return documentoARegistro(fila.document); });
     });
+
+    var filas = await respuesta.json();
+
+    return filas
+      .filter(function (fila) { return fila.document; })
+      .map(function (fila) { return documentoARegistro(fila.document); });
   }
 
-  function actualizarEstado(id, estado) {
+  async function actualizarEstado(id, estado) {
     var url = BASE + "/solicitudes/" + encodeURIComponent(id) + "?updateMask.fieldPaths=estado";
 
-    return conToken(url, {
+    await conToken(url, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { estado: { stringValue: estado } } }),
-    }).then(function () {});
+    });
   }
 
-  function eliminar(id) {
-    return conToken(BASE + "/solicitudes/" + encodeURIComponent(id), {
+  async function eliminar(id) {
+    await conToken(BASE + "/solicitudes/" + encodeURIComponent(id), {
       method: "DELETE",
-    }).then(function () {});
+    });
   }
 
   window.MuscariDatos = {

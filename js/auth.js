@@ -59,20 +59,22 @@
   }
 
   // Devuelve una promesa: true si el acceso fue correcto, false si no.
-  function iniciarSesion(correo, clave) {
-    return fetch(URL_LOGIN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: correo, password: clave, returnSecureToken: true }),
-    }).then(function (respuesta) {
+  async function iniciarSesion(correo, clave) {
+    try {
+      var respuesta = await fetch(URL_LOGIN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: correo, password: clave, returnSecureToken: true }),
+      });
+
       if (!respuesta.ok) return false;
 
-      return respuesta.json().then(function (datos) {
-        return guardarSesion(crearSesion(datos, correo));
-      });
-    }).catch(function () {
+      var datos = await respuesta.json();
+
+      return guardarSesion(crearSesion(datos, correo));
+    } catch (e) {
       return false;
-    });
+    }
   }
 
   function cerrarSesion() {
@@ -94,30 +96,31 @@
   }
 
   // Token vigente para llamar a Firestore (se renueva solo).
-  function token() {
+  async function token() {
     var sesion = leerSesion();
 
-    if (!sesion) return Promise.reject(new Error("Sin sesión"));
+    if (!sesion) throw new Error("Sin sesión");
 
-    if (Date.now() < sesion.venceEn - 60000) return Promise.resolve(sesion.idToken);
+    if (Date.now() < sesion.venceEn - 60000) return sesion.idToken;
 
-    return fetch(URL_REFRESCO, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(sesion.refreshToken),
-    }).then(function (respuesta) {
+    try {
+      var respuesta = await fetch(URL_REFRESCO, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(sesion.refreshToken),
+      });
+
       if (!respuesta.ok) throw new Error("Sesión vencida");
 
-      return respuesta.json();
-    }).then(function (datos) {
+      var datos = await respuesta.json();
       var nueva = crearSesion(datos, sesion.correo);
 
       guardarSesion(nueva);
       return nueva.idToken;
-    }).catch(function (error) {
+    } catch (error) {
       cerrarSesion();
       throw error;
-    });
+    }
   }
 
   window.MuscariAuth = {
